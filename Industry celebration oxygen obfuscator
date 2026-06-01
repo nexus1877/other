@@ -1,0 +1,206 @@
+import curses
+import time
+
+TRAIN = [
+    "     ====        ________                ___________     ",
+    " _8n_|  |_______/        \\__I_I_____===__|___________|  ",
+    "  |(_)---  |   H\\________/ |   |        =|___ ___|      ",
+    "  /     |  |   H  |  |     |   |         ||_| |_||      ",
+    " |      |  |   H  |__--------------------| [8n_] |      ",
+    " | ________|___H__/__|_____/[][]~\\_______|       |      ",
+    " |/ |   |-----------I_____I [][] []  8n  |=======|__    ",
+]
+
+WHEELS = [
+    [
+        "__/ =| o |=-~~\\  /~~\\  /~~\\  /~~\\ ____Y___________|__ ",
+        " |/-=|___|=    ||    ||    ||    |_____/~\\___/         ",
+        "  \\_/      \\O=====O=====O=====O_/      \\_/            ",
+    ],
+    [
+        "__/ =| o |=-~~\\  /~~\\  /~~\\  /~~\\ ____Y___________|__ ",
+        " |/-=|___|=O=====O=====O=====O   |_____/~\\___/         ",
+        "  \\_/      \\__/  \\__/  \\__/  \\__/      \\_/            ",
+    ],
+    [
+        "__/ =| o |=-O=====O=====O=====O \\ ____Y___________|__ ",
+        " |/-=|___|=    ||    ||    ||    |_____/~\\___/         ",
+        "  \\_/      \\__/  \\__/  \\__/  \\__/      \\_/            ",
+    ],
+    [
+        "__/ =| o |=-~O=====O=====O=====O\\ ____Y___________|__ ",
+        " |/-=|___|=    ||    ||    ||    |_____/~\\___/         ",
+        "  \\_/      \\__/  \\__/  \\__/  \\__/      \\_/            ",
+    ],
+    [
+        "__/ =| o |=-~~\\  /~~\\  /~~\\  /~~\\ ____Y___________|__ ",
+        " |/-=|___|=   O=====O=====O=====O|_____/~\\___/         ",
+        "  \\_/      \\__/  \\__/  \\__/  \\__/      \\_/            ",
+    ],
+    [
+        "__/ =| o |=-~~\\  /~~\\  /~~\\  /~~\\ ____Y___________|__ ",
+        " |/-=|___|=    ||    ||    ||    |_____/~\\___/         ",
+        "  \\_/      \\_O=====O=====O=====O/      \\_/            ",
+    ],
+]
+
+COAL = [
+    "                              ",
+    "                              ",
+    "    _________________         ",
+    "   _|       8n       \\_____A  ",
+    " =|                        |  ",
+    " -|      [ 8n Dev ]        |  ",
+    "__|________________________|_ ",
+    "|__________________________|_ ",
+    "   |_D__D__D_|  |_D__D__D_|  ",
+    "    \\_/   \\_/    \\_/   \\_/   ",
+    "                              ",
+]
+
+SMOKE_SHAPES = [
+    ["(   )", "(@@@)"],
+    ["(    )", "(@@@@)"],
+    ["(    )", "(@@@@)"],
+    ["(   )", "(@@@)"],
+    ["(  )", "(@@)"],
+    ["(  )", "(@@)"],
+    ["( )", "(@)"],
+    ["( )", "(@)"],
+    ["()", "@@"],
+    ["()", "@@"],
+    ["O", "@"],
+    ["O", "@"],
+    ["O", "@"],
+    ["o", "."],
+    ["o", "."],
+    [" ", " "],
+]
+
+SMOKE_DY = [2, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+SMOKE_DX = [-2, -1, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3]
+
+def init_colors():
+    curses.start_color()
+    curses.use_default_colors()
+    curses.init_pair(1, curses.COLOR_RED,     -1)
+    curses.init_pair(2, curses.COLOR_YELLOW,  -1)
+    curses.init_pair(3, curses.COLOR_GREEN,   -1)
+    curses.init_pair(4, curses.COLOR_CYAN,    -1)
+    curses.init_pair(5, curses.COLOR_BLUE,    -1)
+    curses.init_pair(6, curses.COLOR_MAGENTA, -1)
+    curses.init_pair(7, curses.COLOR_WHITE,   -1)
+
+def safe_add(win, y, x, text, attr=0):
+    h, w = win.getmaxyx()
+    if y < 0 or y >= h - 1:
+        return
+    if x >= w:
+        return
+    if x < 0:
+        text = text[-x:]
+        x = 0
+    if not text:
+        return
+    if x + len(text) >= w:
+        text = text[:w - x - 1]
+    if not text:
+        return
+    try:
+        win.addstr(y, x, text, attr)
+    except curses.error:
+        pass
+
+def main(stdscr):
+    curses.curs_set(0)
+    stdscr.nodelay(True)
+    init_colors()
+
+    h, w = stdscr.getmaxyx()
+    x = w - 1
+    frame = 0
+    smokes = []
+
+    TRAIN_LEN = len(TRAIN[0]) + 60
+
+    while True:
+        stdscr.erase()
+        h, w = stdscr.getmaxyx()
+
+        ch = stdscr.getch()
+        if ch == ord('q') or ch == 27:
+            break
+
+        y = h // 2 - 6
+        funnel_x = x + 7
+        funnel_y = y - 1
+
+        if frame % 3 == 0:
+            smokes.append({"y": funnel_y, "x": funnel_x, "ptrn": 0, "kind": frame % 2})
+
+        new_smokes = []
+        for s in smokes:
+            ptrn = s["ptrn"]
+            if ptrn >= len(SMOKE_SHAPES):
+                continue
+            shape = SMOKE_SHAPES[ptrn][s["kind"]]
+            smoke_colors = [
+                curses.color_pair(7) | curses.A_DIM,
+                curses.color_pair(7),
+                curses.color_pair(7) | curses.A_BOLD,
+                curses.color_pair(4),
+                curses.color_pair(5),
+            ]
+            col = smoke_colors[min(ptrn // 3, len(smoke_colors) - 1)]
+            safe_add(stdscr, s["y"], s["x"], shape, col)
+            s["y"] -= SMOKE_DY[min(ptrn, len(SMOKE_DY) - 1)]
+            s["x"] += SMOKE_DX[min(ptrn, len(SMOKE_DX) - 1)]
+            s["ptrn"] += 1
+            if s["ptrn"] < len(SMOKE_SHAPES) and s["y"] >= 0:
+                new_smokes.append(s)
+        smokes = new_smokes
+
+        train_color  = curses.color_pair(2) | curses.A_BOLD
+        label_color  = curses.color_pair(6) | curses.A_BOLD
+        wheel_color  = curses.color_pair(3) | curses.A_BOLD
+        coal_color   = curses.color_pair(1) | curses.A_BOLD
+
+        for i, line in enumerate(TRAIN):
+            col = label_color if "8n" in line else train_color
+            safe_add(stdscr, y + i, x, line, col)
+
+        wf = frame % len(WHEELS)
+        for i, line in enumerate(WHEELS[wf]):
+            safe_add(stdscr, y + len(TRAIN) + i, x, line, wheel_color)
+
+        coal_x = x + 55
+        for i, line in enumerate(COAL):
+            col = label_color if "8n" in line else coal_color
+            safe_add(stdscr, y + i, coal_x, line, col)
+
+        rail = "=" * w
+        safe_add(stdscr, y + len(TRAIN) + 3, 0, rail, curses.color_pair(3) | curses.A_DIM)
+
+        title = " 8n Dev - Oxygen obfuscator"
+        tx = max(0, (w - len(title)) // 2)
+        safe_add(stdscr, 0, tx, title, curses.color_pair(6) | curses.A_BOLD | curses.A_REVERSE)
+
+        safe_add(stdscr, h - 2, 2, "Press Q to quit", curses.color_pair(3))
+
+        stdscr.refresh()
+
+        x -= 1
+        frame += 1
+
+        if x < -TRAIN_LEN:
+            x = w - 1
+            smokes = []
+
+        time.sleep(0.06)
+
+if __name__ == "__main__":
+    try:
+        curses.wrapper(main)
+    except KeyboardInterrupt:
+        pass
+    print("8n Dev")
