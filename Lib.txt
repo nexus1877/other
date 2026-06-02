@@ -371,11 +371,7 @@ local function MakeDrag(Instance)
     local function getBounds()
         local viewport = workspace.CurrentCamera.ViewportSize
         local size = Instance.AbsoluteSize
-        local minX = 0
-        local maxX = (viewport.X / uiScale) - size.X
-        local minY = 0
-        local maxY = (viewport.Y / uiScale) - size.Y
-        return minX, maxX, minY, maxY
+        return 0, (viewport.X / uiScale) - size.X, 0, (viewport.Y / uiScale) - size.Y
     end
 
     Instance.InputBegan:Connect(function(input)
@@ -386,21 +382,18 @@ local function MakeDrag(Instance)
         end
     end)
 
-    Instance.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-            local cur = Instance.Position
-            local minX, maxX, minY, maxY = getBounds()
-            local newX = cur.X.Offset
-            local newY = cur.Y.Offset
-            local snap = false
-            if newX < minX then newX = minX snap = true end
-            if newX > maxX then newX = maxX snap = true end
-            if newY < minY then newY = minY snap = true end
-            if newY > maxY then newY = maxY snap = true end
-            if snap then
-                CreateTween({Instance, "Position", UDim2.new(cur.X.Scale, newX, cur.Y.Scale, newY), 0.2})
-            end
+    Instance.InputEnded:Connect(function()
+        if not dragging then return end
+        dragging = false
+        local cur = Instance.Position
+        local minX, maxX, minY, maxY = getBounds()
+        local targetX = math.clamp(cur.X.Offset, minX, maxX)
+        local targetY = math.clamp(cur.Y.Offset, minY, maxY)
+        if targetX ~= cur.X.Offset or targetY ~= cur.Y.Offset then
+            local tween = TweenService:Create(Instance, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                Position = UDim2.new(cur.X.Scale, targetX, cur.Y.Scale, targetY)
+            })
+            tween:Play()
         end
     end)
 
@@ -408,26 +401,28 @@ local function MakeDrag(Instance)
         if dragging then
             local mouse = Player:GetMouse()
             local delta = Vector2.new(mouse.X, mouse.Y) - dragStart
-            local newX = startPos.X.Offset + delta.X / uiScale
-            local newY = startPos.Y.Offset + delta.Y / uiScale
+            local rawX = startPos.X.Offset + delta.X / uiScale
+            local rawY = startPos.Y.Offset + delta.Y / uiScale
             local minX, maxX, minY, maxY = getBounds()
-            local resistance = 0.25
-            if newX < minX then
-                newX = minX + (newX - minX) * resistance
-            elseif newX > maxX then
-                newX = maxX + (newX - maxX) * resistance
+            local resistance = 0.2
+            local newX = rawX
+            local newY = rawY
+            if rawX < minX then
+                newX = minX + (rawX - minX) * resistance
+            elseif rawX > maxX then
+                newX = maxX + (rawX - maxX) * resistance
             end
-            if newY < minY then
-                newY = minY + (newY - minY) * resistance
-            elseif newY > maxY then
-                newY = maxY + (newY - maxY) * resistance
+            if rawY < minY then
+                newY = minY + (rawY - minY) * resistance
+            elseif rawY > maxY then
+                newY = maxY + (rawY - maxY) * resistance
             end
             Instance.Position = UDim2.new(startPos.X.Scale, newX, startPos.Y.Scale, newY)
         end
     end)
 
     return Instance
-end 
+end
 local function VerifyTheme(Theme)
 	for name,_ in pairs(redzlib.Themes) do
 		if name == Theme then
