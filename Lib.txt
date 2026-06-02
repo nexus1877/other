@@ -358,82 +358,70 @@ local function MakeDrag(Instance)
             AutoButtonColor = false
         })
         
-        local DragStart, StartPos, InputOn
-        local ScreenGui = Instance.Parent
-        local UIScale = ScreenGui:FindFirstChild("Scale") and ScreenGui.Scale.Scale or 1
+        local DragStart, StartPos, Dragging = false
+        local UIScale = (Instance.Parent and Instance.Parent:FindFirstChild("Scale")) and Instance.Parent.Scale.Scale or 1
         
         local function GetBounds()
             local viewport = workspace.CurrentCamera.ViewportSize
-            local frameSize = Instance.AbsoluteSize
-            local minX = 0
-            local maxX = (viewport.X / UIScale) - frameSize.X
-            local minY = 0
-            local maxY = (viewport.Y / UIScale) - frameSize.Y
-            return minX, maxX, minY, maxY
+            local size = Instance.AbsoluteSize
+            return 0, (viewport.X / UIScale) - size.X, 0, (viewport.Y / UIScale) - size.Y
         end
-        
-        local function Update(Input)
-            local delta = Input.Position - DragStart
-            local newX = StartPos.X.Offset + delta.X / UIScale
-            local newY = StartPos.Y.Offset + delta.Y / UIScale
-            
-            local minX, maxX, minY, maxY = GetBounds()
-            local resistance = 0.25
-            
-            if newX < minX then
-                newX = minX + (newX - minX) * resistance
-            elseif newX > maxX then
-                newX = maxX + (newX - maxX) * resistance
-            end
-            
-            if newY < minY then
-                newY = minY + (newY - minY) * resistance
-            elseif newY > maxY then
-                newY = maxY + (newY - maxY) * resistance
-            end
-            
-            Instance.Position = UDim2.new(StartPos.X.Scale, newX, StartPos.Y.Scale, newY)
-        end
-        
-        local function SnapToBounds()
-            local minX, maxX, minY, maxY = GetBounds()
-            local curPos = Instance.Position
-            local newX = curPos.X.Offset
-            local newY = curPos.Y.Offset
-            local snapped = false
-            
-            if newX < minX then newX = minX snapped = true end
-            if newX > maxX then newX = maxX snapped = true end
-            if newY < minY then newY = minY snapped = true end
-            if newY > maxY then newY = maxY snapped = true end
-            
-            if snapped then
-                CreateTween({Instance, "Position", UDim2.new(curPos.X.Scale, newX, curPos.Y.Scale, newY), 0.2})
-            end
-        end
-        
-        Instance.MouseButton1Down:Connect(function()
-            InputOn = true
-        end)
         
         Instance.InputBegan:Connect(function(Input)
             if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+                Dragging = true
                 StartPos = Instance.Position
                 DragStart = Input.Position
-                while UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
-                    RunService.Heartbeat:Wait()
-                    if InputOn then
-                        Update(Input)
-                    end
-                end
-                InputOn = false
-                SnapToBounds()
             end
+        end)
+        
+        Instance.InputEnded:Connect(function(Input)
+            if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+                Dragging = false
+                local minX, maxX, minY, maxY = GetBounds()
+                local curPos = Instance.Position
+                local newX = curPos.X.Offset
+                local newY = curPos.Y.Offset
+                local snapped = false
+                if newX < minX then newX = minX snapped = true end
+                if newX > maxX then newX = maxX snapped = true end
+                if newY < minY then newY = minY snapped = true end
+                if newY > maxY then newY = maxY snapped = true end
+                if snapped then
+                    CreateTween({Instance, "Position", UDim2.new(curPos.X.Scale, newX, curPos.Y.Scale, newY), 0.2})
+                end
+            end
+        end)
+        
+        local RunConn
+        RunConn = RunService.RenderStepped:Connect(function()
+            if Dragging then
+                local Mouse = Player:GetMouse()
+                local delta = Vector2.new(Mouse.X, Mouse.Y) - DragStart
+                local newX = StartPos.X.Offset + delta.X / UIScale
+                local newY = StartPos.Y.Offset + delta.Y / UIScale
+                local minX, maxX, minY, maxY = GetBounds()
+                local resistance = 0.3
+                if newX < minX then
+                    newX = minX + (newX - minX) * resistance
+                elseif newX > maxX then
+                    newX = maxX + (newX - maxX) * resistance
+                end
+                if newY < minY then
+                    newY = minY + (newY - minY) * resistance
+                elseif newY > maxY then
+                    newY = maxY + (newY - maxY) * resistance
+                end
+                Instance.Position = UDim2.new(StartPos.X.Scale, newX, StartPos.Y.Scale, newY)
+            end
+        end)
+        
+        Instance.AncestryChanged:Connect(function()
+            if not Instance.Parent then RunConn:Disconnect() end
         end)
     end)
     return Instance
 end
-
 local function VerifyTheme(Theme)
 	for name,_ in pairs(redzlib.Themes) do
 		if name == Theme then
