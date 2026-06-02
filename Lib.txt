@@ -357,67 +357,132 @@ local function MakeDrag(Instance)
             Active = true,
             AutoButtonColor = false
         })
-        
-        local DragStart, StartPos, Dragging = false
+
+        local dragData = {
+            dragging = false,
+            startPos = nil,
+            dragStart = nil,
+            startTime = nil,
+            velocity = Vector2.new(0, 0),
+            lastPos = nil,
+            lastTime = nil
+        }
+
         local UIScale = (Instance.Parent and Instance.Parent:FindFirstChild("Scale")) and Instance.Parent.Scale.Scale or 1
-        
+
         local function GetBounds()
             local viewport = workspace.CurrentCamera.ViewportSize
             local size = Instance.AbsoluteSize
             return 0, (viewport.X / UIScale) - size.X, 0, (viewport.Y / UIScale) - size.Y
         end
-        
+
+        local function SpringMotion(targetPos, currentPos, velocity, stiffness, damping)
+            local mass = 1
+            local springForce = (targetPos - currentPos) * stiffness
+            local dampingForce = -velocity * damping
+            local acceleration = (springForce + dampingForce) / mass
+            return acceleration
+        end
+
+        local function UpdateDrag(Input)
+            local delta = Input.Position - dragData.dragStart
+            local newX = dragData.startPos.X.Offset + delta.X / UIScale
+            local newY = dragData.startPos.Y.Offset + delta.Y / UIScale
+
+            local minX, maxX, minY, maxY = GetBounds()
+            local resistance = 0.15
+
+            if newX < minX then
+                newX = minX + (newX - minX) * resistance
+            elseif newX > maxX then
+                newX = maxX + (newX - maxX) * resistance
+            end
+
+            if newY < minY then
+                newY = minY + (newY - minY) * resistance
+            elseif newY > maxY then
+                newY = maxY + (newY - maxY) * resistance
+            end
+
+            Instance.Position = UDim2.new(dragData.startPos.X.Scale, newX, dragData.startPos.Y.Scale, newY)
+            dragData.lastPos = Vector2.new(newX, newY)
+            dragData.lastTime = tick()
+        end
+
         Instance.InputBegan:Connect(function(Input)
             if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
-                Dragging = true
-                StartPos = Instance.Position
-                DragStart = Input.Position
+                dragData.dragging = true
+                dragData.startPos = Instance.Position
+                dragData.dragStart = Input.Position
+                dragData.startTime = tick()
+                dragData.velocity = Vector2.new(0, 0)
+                dragData.lastPos = Vector2.new(dragData.startPos.X.Offset, dragData.startPos.Y.Offset)
+                dragData.lastTime = dragData.startTime
             end
         end)
-        
+
         Instance.InputEnded:Connect(function(Input)
             if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
-                Dragging = false
+                dragData.dragging = false
                 local minX, maxX, minY, maxY = GetBounds()
                 local curPos = Instance.Position
-                local newX = curPos.X.Offset
-                local newY = curPos.Y.Offset
+                local targetX = curPos.X.Offset
+                local targetY = curPos.Y.Offset
                 local snapped = false
-                if newX < minX then newX = minX snapped = true end
-                if newX > maxX then newX = maxX snapped = true end
-                if newY < minY then newY = minY snapped = true end
-                if newY > maxY then newY = maxY snapped = true end
+
+                if targetX < minX then
+                    targetX = minX
+                    snapped = true
+                elseif targetX > maxX then
+                    targetX = maxX
+                    snapped = true
+                end
+
+                if targetY < minY then
+                    targetY = minY
+                    snapped = true
+                elseif targetY > maxY then
+                    targetY = maxY
+                    snapped = true
+                end
+
                 if snapped then
-                    CreateTween({Instance, "Position", UDim2.new(curPos.X.Scale, newX, curPos.Y.Scale, newY), 0.2})
+                    local currentX = curPos.X.Offset
+                    local currentY = curPos.Y.Offset
+                    local duration = 0.2
+                    local startTime = tick()
+
+                    local function AnimateSnap()
+                        local elapsed = tick() - startTime
+                        local t = math.min(1, elapsed / duration)
+                        local easeOut = 1 - math.pow(1 - t, 3)
+
+                        local newX = currentX + (targetX - currentX) * easeOut
+                        local newY = currentY + (targetY - currentY) * easeOut
+                        Instance.Position = UDim2.new(curPos.X.Scale, newX, curPos.Y.Scale, newY)
+
+                        if t < 1 then
+                            RunService.Heartbeat:Wait()
+                            AnimateSnap()
+                        end
+                    end
+                    AnimateSnap()
                 end
             end
         end)
-        
+
         local RunConn
         RunConn = RunService.RenderStepped:Connect(function()
-            if Dragging then
+            if dragData.dragging then
                 local Mouse = Player:GetMouse()
-                local delta = Vector2.new(Mouse.X, Mouse.Y) - DragStart
-                local newX = StartPos.X.Offset + delta.X / UIScale
-                local newY = StartPos.Y.Offset + delta.Y / UIScale
-                local minX, maxX, minY, maxY = GetBounds()
-                local resistance = 0.3
-                if newX < minX then
-                    newX = minX + (newX - minX) * resistance
-                elseif newX > maxX then
-                    newX = maxX + (newX - maxX) * resistance
-                end
-                if newY < minY then
-                    newY = minY + (newY - minY) * resistance
-                elseif newY > maxY then
-                    newY = maxY + (newY - maxY) * resistance
-                end
-                Instance.Position = UDim2.new(StartPos.X.Scale, newX, StartPos.Y.Scale, newY)
+                UpdateDrag({Position = Vector2.new(Mouse.X, Mouse.Y)})
             end
         end)
-        
+
         Instance.AncestryChanged:Connect(function()
-            if not Instance.Parent then RunConn:Disconnect() end
+            if not Instance.Parent then
+                RunConn:Disconnect()
+            end
         end)
     end)
     return Instance
