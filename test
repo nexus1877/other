@@ -1,0 +1,563 @@
+local Players          = game:GetService("Players")
+local TweenService     = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local HttpService      = game:GetService("HttpService")
+local CoreGui          = game:GetService("CoreGui")
+local RunService       = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+
+pcall(function()
+    local old = CoreGui:FindFirstChild("PurpleScriptHub")
+    if old then old:Destroy() end
+end)
+
+local THEME = {
+    PanelBG     = Color3.fromRGB(28, 18, 48),
+    PanelBG2    = Color3.fromRGB(40, 22, 70),
+    Stroke      = Color3.fromRGB(155, 89, 255),
+    Purple      = Color3.fromRGB(155, 89, 255),
+    PurpleSoft  = Color3.fromRGB(120, 70, 220),
+    PurpleGlow  = Color3.fromRGB(180, 120, 255),
+    Text        = Color3.fromRGB(240, 235, 255),
+    SubText     = Color3.fromRGB(170, 160, 200),
+    Card        = Color3.fromRGB(50, 28, 85),
+    CardHover   = Color3.fromRGB(70, 40, 115),
+    Success     = Color3.fromRGB(80, 220, 130),
+    Danger      = Color3.fromRGB(240, 90, 110),
+    Input       = Color3.fromRGB(35, 22, 60),
+}
+
+local function corner(p, r)
+    local c = Instance.new("UICorner", p); c.CornerRadius = UDim.new(0, r or 10); return c
+end
+local function stroke(p, col, t, trans)
+    local s = Instance.new("UIStroke", p)
+    s.Color = col or THEME.Stroke
+    s.Thickness = t or 1
+    s.Transparency = trans or 0.4
+    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    return s
+end
+local function pad(p, all)
+    local u = Instance.new("UIPadding", p)
+    u.PaddingTop = UDim.new(0, all); u.PaddingBottom = UDim.new(0, all)
+    u.PaddingLeft = UDim.new(0, all); u.PaddingRight = UDim.new(0, all)
+    return u
+end
+local function tween(o, t, props, style, dir)
+    local tw = TweenService:Create(o, TweenInfo.new(t, style or Enum.EasingStyle.Quart, dir or Enum.EasingDirection.Out), props)
+    tw:Play(); return tw
+end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "PurpleScriptHub"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.IgnoreGuiInset = true
+pcall(function() ScreenGui.Parent = CoreGui end)
+if not ScreenGui.Parent then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Name = "Toggle"
+ToggleBtn.Size = UDim2.new(0, 48, 0, 48)
+ToggleBtn.Position = UDim2.new(0, 16, 0, 16)
+ToggleBtn.BackgroundColor3 = THEME.Purple
+ToggleBtn.BackgroundTransparency = 0.25
+ToggleBtn.Text = "M"
+ToggleBtn.TextColor3 = THEME.Text
+ToggleBtn.TextScaled = true
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.AutoButtonColor = false
+ToggleBtn.Parent = ScreenGui
+corner(ToggleBtn, 14)
+stroke(ToggleBtn, THEME.PurpleGlow, 1.5, 0.3)
+local togglePad = pad(ToggleBtn, 10)
+ToggleBtn.Visible = false
+
+local PANEL_W, PANEL_H = 380, 460
+local Panel = Instance.new("Frame")
+Panel.Name = "Panel"
+Panel.AnchorPoint = Vector2.new(0.5, 0.5)
+Panel.Position = UDim2.new(0.5, 0, 0.5, 0)
+Panel.Size = UDim2.new(0, PANEL_W, 0, PANEL_H)
+Panel.BackgroundColor3 = THEME.PanelBG
+Panel.BackgroundTransparency = 0.15
+Panel.BorderSizePixel = 0
+Panel.ClipsDescendants = true
+Panel.Parent = ScreenGui
+corner(Panel, 18)
+stroke(Panel, THEME.Purple, 1.5, 0.3)
+
+local grad = Instance.new("UIGradient", Panel)
+grad.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, THEME.PanelBG2),
+    ColorSequenceKeypoint.new(1, THEME.PanelBG),
+}
+grad.Rotation = 135
+
+local function orb(size, posX, posY, color, trans)
+    local o = Instance.new("Frame")
+    o.Size = UDim2.new(0, size, 0, size)
+    o.Position = UDim2.new(posX, 0, posY, 0)
+    o.AnchorPoint = Vector2.new(0.5, 0.5)
+    o.BackgroundColor3 = color
+    o.BackgroundTransparency = trans or 0.7
+    o.BorderSizePixel = 0
+    o.ZIndex = 0
+    o.Parent = Panel
+    local c = Instance.new("UICorner", o); c.CornerRadius = UDim.new(1, 0)
+    return o
+end
+local orb1 = orb(200, 0.1, 0.1, THEME.Purple, 0.75)
+local orb2 = orb(240, 0.95, 0.95, THEME.PurpleGlow, 0.8)
+
+task.spawn(function()
+    local t = 0
+    while Panel.Parent do
+        t = t + 0.03
+        orb1.Position = UDim2.new(0.1 + math.sin(t)*0.05, 0, 0.1 + math.cos(t)*0.05, 0)
+        orb2.Position = UDim2.new(0.95 + math.cos(t*0.8)*0.05, 0, 0.95 + math.sin(t*0.8)*0.05, 0)
+        RunService.RenderStepped:Wait()
+    end
+end)
+
+local Header = Instance.new("Frame")
+Header.Name = "Header"
+Header.Size = UDim2.new(1, 0, 0, 56)
+Header.BackgroundTransparency = 1
+Header.ZIndex = 2
+Header.Parent = Panel
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -110, 1, 0)
+Title.Position = UDim2.new(0, 18, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "*  PurpleScripts"
+Title.TextColor3 = THEME.Text
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 18
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.ZIndex = 3
+Title.Parent = Header
+
+local HideBtn = Instance.new("TextButton")
+HideBtn.Size = UDim2.new(0, 34, 0, 34)
+HideBtn.Position = UDim2.new(1, -50, 0.5, -17)
+HideBtn.BackgroundColor3 = THEME.Input
+HideBtn.BackgroundTransparency = 0.3
+HideBtn.Text = "-"
+HideBtn.TextColor3 = THEME.Text
+HideBtn.Font = Enum.Font.GothamBold
+HideBtn.TextSize = 20
+HideBtn.AutoButtonColor = false
+HideBtn.ZIndex = 3
+HideBtn.Parent = Header
+corner(HideBtn, 10)
+stroke(HideBtn, THEME.Purple, 1, 0.5)
+
+local DevBtn = Instance.new("TextButton")
+DevBtn.Size = UDim2.new(1, -36, 0, 38)
+DevBtn.Position = UDim2.new(0, 18, 0, 60)
+DevBtn.BackgroundColor3 = THEME.Card
+DevBtn.BackgroundTransparency = 0.2
+DevBtn.Text = "Dev  \230\136\185\217\132\217\132\216\169 \231\133\183\216\183\217\138\216\177\217\138\217\134\217\136\216\170"
+DevBtn.TextColor3 = THEME.PurpleGlow
+DevBtn.Font = Enum.Font.GothamBold
+DevBtn.TextSize = 14
+DevBtn.AutoButtonColor = false
+DevBtn.ZIndex = 2
+DevBtn.Parent = Panel
+corner(DevBtn, 10)
+stroke(DevBtn, THEME.Purple, 1, 0.4)
+
+local devGrad = Instance.new("UIGradient", DevBtn)
+devGrad.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, THEME.PurpleSoft),
+    ColorSequenceKeypoint.new(1, THEME.Card),
+}
+devGrad.Transparency = NumberSequence.new{
+    NumberSequenceKeypoint.new(0, 0.5),
+    NumberSequenceKeypoint.new(1, 0.2),
+}
+
+local SearchHolder = Instance.new("Frame")
+SearchHolder.Size = UDim2.new(1, -36, 0, 38)
+SearchHolder.Position = UDim2.new(0, 18, 0, 108)
+SearchHolder.BackgroundColor3 = THEME.Input
+SearchHolder.BackgroundTransparency = 0.25
+SearchHolder.ZIndex = 2
+SearchHolder.Parent = Panel
+corner(SearchHolder, 10)
+stroke(SearchHolder, THEME.Purple, 1, 0.5)
+
+local SearchIcon = Instance.new("TextLabel")
+SearchIcon.Size = UDim2.new(0, 30, 1, 0)
+SearchIcon.BackgroundTransparency = 1
+SearchIcon.Text = "?"
+SearchIcon.TextColor3 = THEME.SubText
+SearchIcon.Font = Enum.Font.Gotham
+SearchIcon.TextSize = 14
+SearchIcon.ZIndex = 3
+SearchIcon.Parent = SearchHolder
+
+local SearchBox = Instance.new("TextBox")
+SearchBox.Size = UDim2.new(1, -40, 1, 0)
+SearchBox.Position = UDim2.new(0, 36, 0, 0)
+SearchBox.BackgroundTransparency = 1
+SearchBox.Text = ""
+SearchBox.PlaceholderText = "Search for script..."
+SearchBox.TextColor3 = THEME.Text
+SearchBox.PlaceholderColor3 = THEME.SubText
+SearchBox.Font = Enum.Font.Gotham
+SearchBox.TextSize = 13
+SearchBox.TextXAlignment = Enum.TextXAlignment.Left
+SearchBox.ClearTextOnFocus = false
+SearchBox.ZIndex = 3
+SearchBox.Parent = SearchHolder
+
+local Status = Instance.new("TextLabel")
+Status.Size = UDim2.new(1, -36, 0, 16)
+Status.Position = UDim2.new(0, 18, 0, 150)
+Status.BackgroundTransparency = 1
+Status.Text = "Top Scripts"
+Status.TextColor3 = THEME.SubText
+Status.Font = Enum.Font.Gotham
+Status.TextSize = 11
+Status.TextXAlignment = Enum.TextXAlignment.Left
+Status.ZIndex = 2
+Status.Parent = Panel
+
+local List = Instance.new("ScrollingFrame")
+List.Size = UDim2.new(1, -24, 1, -184)
+List.Position = UDim2.new(0, 12, 0, 172)
+List.BackgroundTransparency = 1
+List.BorderSizePixel = 0
+List.ScrollBarThickness = 3
+List.ScrollBarImageColor3 = THEME.Purple
+List.CanvasSize = UDim2.new(0, 0, 0, 0)
+List.ZIndex = 2
+List.Parent = Panel
+
+local listLayout = Instance.new("UIListLayout", List)
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+listLayout.Padding = UDim.new(0, 8)
+pad(List, 6)
+
+listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    List.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 12)
+end)
+
+local DevOverlay = Instance.new("Frame")
+DevOverlay.Size = UDim2.fromScale(1, 1)
+DevOverlay.BackgroundColor3 = THEME.PanelBG
+DevOverlay.BackgroundTransparency = 1
+DevOverlay.Visible = false
+DevOverlay.ZIndex = 10
+DevOverlay.Parent = Panel
+
+local DevCard = Instance.new("Frame")
+DevCard.AnchorPoint = Vector2.new(0.5, 0.5)
+DevCard.Position = UDim2.new(0.5, 0, 0.5, 0)
+DevCard.Size = UDim2.new(0, 0, 0, 0)
+DevCard.BackgroundColor3 = THEME.PanelBG2
+DevCard.BackgroundTransparency = 0.05
+DevCard.ZIndex = 11
+DevCard.Parent = DevOverlay
+corner(DevCard, 16)
+stroke(DevCard, THEME.PurpleGlow, 1.5, 0.2)
+
+local devTitle = Instance.new("TextLabel")
+devTitle.Size = UDim2.new(1, -40, 0, 40)
+devTitle.Position = UDim2.new(0, 20, 0, 18)
+devTitle.BackgroundTransparency = 1
+devTitle.Text = "Dev \230\136\185\217\132\217\132\216\169 \231\133\183\217\138\216\177\217\138\217\134\217\136\216\170"
+devTitle.TextColor3 = THEME.Text
+devTitle.Font = Enum.Font.GothamBold
+devTitle.TextSize = 18
+devTitle.TextXAlignment = Enum.TextXAlignment.Left
+devTitle.ZIndex = 12
+devTitle.Parent = DevCard
+
+local devBody = Instance.new("TextLabel")
+devBody.Size = UDim2.new(1, -40, 1, -110)
+devBody.Position = UDim2.new(0, 20, 0, 60)
+devBody.BackgroundTransparency = 1
+devBody.Text = "Here we write our info\n\n* Developer: ___\n* Contact: ___\n* Version: 1.0"
+devBody.TextColor3 = THEME.SubText
+devBody.TextWrapped = true
+devBody.Font = Enum.Font.Gotham
+devBody.TextSize = 14
+devBody.TextXAlignment = Enum.TextXAlignment.Left
+devBody.TextYAlignment = Enum.TextYAlignment.Top
+devBody.ZIndex = 12
+devBody.Parent = DevCard
+
+local devClose = Instance.new("TextButton")
+devClose.Size = UDim2.new(1, -40, 0, 36)
+devClose.Position = UDim2.new(0, 20, 1, -52)
+devClose.BackgroundColor3 = THEME.Purple
+devClose.BackgroundTransparency = 0.2
+devClose.Text = "Close"
+devClose.TextColor3 = THEME.Text
+devClose.Font = Enum.Font.GothamBold
+devClose.TextSize = 13
+devClose.AutoButtonColor = false
+devClose.ZIndex = 12
+devClose.Parent = DevCard
+corner(devClose, 10)
+
+local function openDev()
+    DevOverlay.Visible = true
+    tween(DevOverlay, 0.25, {BackgroundTransparency = 0.35})
+    DevCard.Size = UDim2.new(0, 0, 0, 0)
+    DevCard.Rotation = -8
+    tween(DevCard, 0.45, {Size = UDim2.new(0.85, 0, 0.8, 0), Rotation = 0}, Enum.EasingStyle.Back)
+end
+local function closeDev()
+    tween(DevCard, 0.25, {Size = UDim2.new(0, 0, 0, 0), Rotation = 8}, Enum.EasingStyle.Quart)
+    local t = tween(DevOverlay, 0.25, {BackgroundTransparency = 1})
+    t.Completed:Connect(function() DevOverlay.Visible = false end)
+end
+DevBtn.MouseButton1Click:Connect(openDev)
+devClose.MouseButton1Click:Connect(closeDev)
+DevBtn.MouseEnter:Connect(function() tween(DevBtn, 0.2, {BackgroundTransparency = 0.05}) end)
+DevBtn.MouseLeave:Connect(function() tween(DevBtn, 0.2, {BackgroundTransparency = 0.2}) end)
+
+local dragging, dragStart, startPos
+Header.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = Panel.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then dragging = false end
+        end)
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        Panel.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+local hidden = false
+local function setHidden(state)
+    hidden = state
+    if state then
+        tween(Panel, 0.4, {Size = UDim2.new(0, 0, 0, 0), Rotation = -180, BackgroundTransparency = 1}, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+        task.delay(0.35, function()
+            if hidden then
+                Panel.Visible = false
+                ToggleBtn.Visible = true
+                ToggleBtn.Size = UDim2.new(0, 0, 0, 0)
+                tween(ToggleBtn, 0.35, {Size = UDim2.new(0, 48, 0, 48)}, Enum.EasingStyle.Back)
+            end
+        end)
+    else
+        ToggleBtn.Visible = false
+        Panel.Visible = true
+        Panel.Size = UDim2.new(0, 0, 0, 0)
+        Panel.Rotation = 180
+        Panel.BackgroundTransparency = 1
+        tween(Panel, 0.45, {Size = UDim2.new(0, PANEL_W, 0, PANEL_H), Rotation = 0, BackgroundTransparency = 0.15}, Enum.EasingStyle.Back)
+    end
+end
+HideBtn.MouseButton1Click:Connect(function() setHidden(true) end)
+ToggleBtn.MouseButton1Click:Connect(function() setHidden(false) end)
+HideBtn.MouseEnter:Connect(function() tween(HideBtn, 0.15, {BackgroundColor3 = THEME.Purple, BackgroundTransparency = 0.1}) end)
+HideBtn.MouseLeave:Connect(function() tween(HideBtn, 0.15, {BackgroundColor3 = THEME.Input, BackgroundTransparency = 0.3}) end)
+
+local function clearList()
+    for _, child in ipairs(List:GetChildren()) do
+        if child:IsA("Frame") or child:IsA("TextLabel") then child:Destroy() end
+    end
+end
+
+local function showMessage(msg, color)
+    clearList()
+    local m = Instance.new("TextLabel")
+    m.Size = UDim2.new(1, -12, 0, 60)
+    m.BackgroundTransparency = 1
+    m.Text = msg
+    m.TextColor3 = color or THEME.SubText
+    m.Font = Enum.Font.Gotham
+    m.TextSize = 13
+    m.TextWrapped = true
+    m.ZIndex = 2
+    m.Parent = List
+end
+
+local function makeCard(data, order)
+    local card = Instance.new("Frame")
+    card.Size = UDim2.new(1, -12, 0, 110)
+    card.BackgroundColor3 = THEME.Card
+    card.BackgroundTransparency = 0.25
+    card.LayoutOrder = order
+    card.ZIndex = 2
+    card.Parent = List
+    corner(card, 12)
+    stroke(card, THEME.Purple, 1, 0.6)
+
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, -20, 0, 36)
+    title.Position = UDim2.new(0, 12, 0, 8)
+    title.BackgroundTransparency = 1
+    title.Text = data.title or "Untitled"
+    title.TextColor3 = THEME.Text
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 13
+    title.TextWrapped = true
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.TextYAlignment = Enum.TextYAlignment.Top
+    title.ZIndex = 3
+    title.Parent = card
+
+    local info = Instance.new("TextLabel")
+    info.Size = UDim2.new(1, -20, 0, 16)
+    info.Position = UDim2.new(0, 12, 0, 46)
+    info.BackgroundTransparency = 1
+    info.Text = string.format("Game %s  * Views %s  * %s",
+        tostring(data.gameName or "Universal"),
+        tostring(data.views or 0),
+        tostring(data.scriptType or "free"))
+    info.TextColor3 = THEME.SubText
+    info.Font = Enum.Font.Gotham
+    info.TextSize = 11
+    info.TextXAlignment = Enum.TextXAlignment.Left
+    info.ZIndex = 3
+    info.Parent = card
+
+    local exec = Instance.new("TextButton")
+    exec.Size = UDim2.new(1, -24, 0, 32)
+    exec.Position = UDim2.new(0, 12, 1, -40)
+    exec.BackgroundColor3 = THEME.Purple
+    exec.BackgroundTransparency = 0.2
+    exec.Text = "> Execute"
+    exec.TextColor3 = THEME.Text
+    exec.Font = Enum.Font.GothamBold
+    exec.TextSize = 12
+    exec.AutoButtonColor = false
+    exec.ZIndex = 3
+    exec.Parent = card
+    corner(exec, 8)
+
+    exec.MouseEnter:Connect(function() tween(exec, 0.15, {BackgroundTransparency = 0.05}) end)
+    exec.MouseLeave:Connect(function() tween(exec, 0.15, {BackgroundTransparency = 0.2}) end)
+
+    exec.MouseButton1Click:Connect(function()
+        exec.Text = "... Executing..."
+        exec.BackgroundColor3 = THEME.PurpleSoft
+        task.spawn(function()
+            local src = data.script or ""
+            local fn, err = nil, nil
+            local okLoad, loadResult = pcall(function()
+                return loadstring(src)
+            end)
+            if okLoad and type(loadResult) == "function" then
+                fn = loadResult
+            else
+                err = loadResult or "loadstring failed"
+            end
+            if fn then
+                local okRun, runErr = pcall(fn)
+                if okRun then
+                    exec.Text = "[v] Executed"
+                    exec.BackgroundColor3 = THEME.Success
+                else
+                    exec.Text = "[x] Runtime Error"
+                    exec.BackgroundColor3 = THEME.Danger
+                    warn("[PurpleScripts] Runtime:", runErr)
+                end
+            else
+                exec.Text = "[x] Load Failed"
+                exec.BackgroundColor3 = THEME.Danger
+                warn("[PurpleScripts] Load:", err)
+            end
+            task.wait(2)
+            exec.Text = "> Execute"
+            exec.BackgroundColor3 = THEME.Purple
+        end)
+    end)
+end
+
+local function httpGet(url)
+    local ok, res = pcall(function()
+        if syn and syn.request then
+            return syn.request({Url = url, Method = "GET"}).Body
+        elseif http_request then
+            return http_request({Url = url, Method = "GET"}).Body
+        elseif request then
+            return request({Url = url, Method = "GET"}).Body
+        else
+            return game:HttpGet(url)
+        end
+    end)
+    if ok then return res end
+    return nil
+end
+
+local function fetchScripts(query)
+    local url
+    if query and query ~= "" then
+        url = "https://scriptblox.com/api/script/search?q=" .. HttpService:UrlEncode(query) .. "&max=15&mode=free&page=1"
+    else
+        url = "https://scriptblox.com/api/script/fetch?page=1"
+    end
+    local body = httpGet(url)
+    if not body then return nil, "No response" end
+    local ok, data = pcall(function() return HttpService:JSONDecode(body) end)
+    if not ok then return nil, "Parse error" end
+    local scripts = data and data.result and data.result.scripts or {}
+    local out = {}
+    for _, s in ipairs(scripts) do
+        table.insert(out, {
+            title      = s.title,
+            script     = s.script,
+            views      = s.views,
+            scriptType = s.scriptType,
+            gameName   = s.game and s.game.name or "Universal",
+        })
+        if #out >= 15 then break end
+    end
+    return out
+end
+
+local currentToken = 0
+local function loadScripts(query)
+    currentToken = currentToken + 1
+    local token = currentToken
+    showMessage("Loading...", THEME.SubText)
+    Status.Text = query and query ~= "" and ('Results: "' .. query .. '"') or "Top Scripts"
+    task.spawn(function()
+        local list, err = fetchScripts(query)
+        if token ~= currentToken then return end
+        clearList()
+        if not list or #list == 0 then
+            showMessage(err or "X No results", THEME.Danger)
+            return
+        end
+        for i, s in ipairs(list) do
+            makeCard(s, i)
+        end
+    end)
+end
+
+local searchToken = 0
+SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+    searchToken = searchToken + 1
+    local t = searchToken
+    local q = SearchBox.Text
+    task.delay(0.45, function()
+        if t ~= searchToken then return end
+        loadScripts(q)
+    end)
+end)
+
+Panel.Size = UDim2.new(0, 0, 0, 0)
+Panel.BackgroundTransparency = 1
+tween(Panel, 0.5, {Size = UDim2.new(0, PANEL_W, 0, PANEL_H), BackgroundTransparency = 0.15}, Enum.EasingStyle.Back)
+
+task.wait(0.2)
+loadScripts(nil)
