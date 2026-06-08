@@ -350,78 +350,42 @@ local function CreateTween(Configs)
 	end
 	return Tween
 end
+
 local function MakeDrag(Instance)
-    SetProps(Instance, {
-        Active = true,
-        AutoButtonColor = false
-    })
-
-    local dragging = false
-    local dragStart = nil
-    local startPos = nil
-    local uiScale = 1
-
-    local function updateScale()
-        local scaleObj = Instance.Parent and Instance.Parent:FindFirstChild("Scale")
-        uiScale = scaleObj and scaleObj.Scale or 1
-    end
-    updateScale()
-    Instance:GetPropertyChangedSignal("Parent"):Connect(updateScale)
-
-    local function getBounds()
-        local viewport = workspace.CurrentCamera.ViewportSize
-        local size = Instance.AbsoluteSize
-        return 0, (viewport.X / uiScale) - size.X, 0, (viewport.Y / uiScale) - size.Y
-    end
-
-    Instance.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            startPos = Instance.Position
-            dragStart = Vector2.new(input.Position.X, input.Position.Y)
-        end
-    end)
-
-    Instance.InputEnded:Connect(function()
-        if not dragging then return end
-        dragging = false
-        local cur = Instance.Position
-        local minX, maxX, minY, maxY = getBounds()
-        local targetX = math.clamp(cur.X.Offset, minX, maxX)
-        local targetY = math.clamp(cur.Y.Offset, minY, maxY)
-        if targetX ~= cur.X.Offset or targetY ~= cur.Y.Offset then
-            local tween = TweenService:Create(Instance, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-                Position = UDim2.new(cur.X.Scale, targetX, cur.Y.Scale, targetY)
-            })
-            tween:Play()
-        end
-    end)
-
-    RunService.RenderStepped:Connect(function()
-        if dragging then
-            local mouse = Player:GetMouse()
-            local delta = Vector2.new(mouse.X, mouse.Y) - dragStart
-            local rawX = startPos.X.Offset + delta.X / uiScale
-            local rawY = startPos.Y.Offset + delta.Y / uiScale
-            local minX, maxX, minY, maxY = getBounds()
-            local resistance = 0.2
-            local newX = rawX
-            local newY = rawY
-            if rawX < minX then
-                newX = minX + (rawX - minX) * resistance
-            elseif rawX > maxX then
-                newX = maxX + (rawX - maxX) * resistance
-            end
-            if rawY < minY then
-                newY = minY + (rawY - minY) * resistance
-            elseif rawY > maxY then
-                newY = maxY + (rawY - maxY) * resistance
-            end
-            Instance.Position = UDim2.new(startPos.X.Scale, newX, startPos.Y.Scale, newY)
-        end
-    end)
-
-    return Instance
+	task.spawn(function()
+		SetProps(Instance, {
+			Active = true,
+			AutoButtonColor = false
+		})
+		
+		local DragStart, StartPos, InputOn
+		
+		local function Update(Input)
+			local delta = Input.Position - DragStart
+			local Position = UDim2.new(StartPos.X.Scale, StartPos.X.Offset + delta.X / UIScale, StartPos.Y.Scale, StartPos.Y.Offset + delta.Y / UIScale)
+			-- Instance.Position = Position
+			CreateTween({Instance, "Position", Position, 0.35})
+		end
+		
+		Instance.MouseButton1Down:Connect(function()
+			InputOn = true
+		end)
+		
+		Instance.InputBegan:Connect(function(Input)
+			if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+				StartPos = Instance.Position
+				DragStart = Input.Position
+				
+				while UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do RunService.Heartbeat:Wait()
+					if InputOn then
+						Update(Input)
+					end
+				end
+				InputOn = false
+			end
+		end)
+	end)
+	return Instance
 end
 local function VerifyTheme(Theme)
 	for name,_ in pairs(redzlib.Themes) do
