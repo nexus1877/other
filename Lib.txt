@@ -638,10 +638,12 @@ function redzlib:MakeWindow(Configs)
 	
 	
 	
+	local TweenService = game:GetService("TweenService")
+
 local UISizeX, UISizeY = unpack(redzlib.Save.UISize)
 
 local MainFrame = InsertTheme(Create("ImageButton", ScreenGui, {
-    Size = UDim2.new(0, 475, 0, 300),
+    Size = UDim2.new(0, 550, 0, 320),
     Position = UDim2.new(0.5, -190, 0.5, -110),
     BackgroundTransparency = 1,
     Name = "Hub"
@@ -652,21 +654,18 @@ local WindowBackground = Create("ImageLabel", MainFrame, {
     Size = UDim2.new(1, 0, 1, 0),
     Position = UDim2.new(0, 0, 0, 0),
     BackgroundTransparency = 1,
-    Image = "rbxassetid://98233136941826", 
-    ImageTransparency = 0.1,
+    Image = "rbxassetid://137711576907882",
+    ImageTransparency = 1,
     ScaleType = Enum.ScaleType.Crop,
     ZIndex = 0
 })
 
 Make("Corner", WindowBackground)
 
-
-
-
-
 Make("Gradient", MainFrame, {
     Rotation = 45
 })
+
 MakeDrag(MainFrame)
 
 local MainCorner = Make("Corner", MainFrame)
@@ -678,6 +677,98 @@ local Components = Create("Folder", MainFrame, {
 local DropdownHolder = Create("Folder", ScreenGui, {
     Name = "Dropdown"
 })
+
+
+
+
+
+local FinalSize = MainFrame.Size
+local FinalPos = MainFrame.Position
+
+MainFrame.Size = UDim2.new(0, 0, 0, 0)
+
+MainFrame.Position = UDim2.new(
+	FinalPos.X.Scale,
+	FinalPos.X.Offset + (FinalSize.X.Offset / 2),
+	FinalPos.Y.Scale,
+	FinalPos.Y.Offset + (FinalSize.Y.Offset / 2) + 30
+)
+
+for _,v in ipairs(MainFrame:GetDescendants()) do
+	if v:IsA("GuiObject") then
+		pcall(function()
+			v.BackgroundTransparency = 1
+		end)
+
+		if v:IsA("TextLabel") or v:IsA("TextButton") then
+			v.TextTransparency = 1
+		end
+
+		if v:IsA("ImageLabel") or v:IsA("ImageButton") then
+			v.ImageTransparency = 1
+		end
+	end
+end
+
+TweenService:Create(
+	MainFrame,
+	TweenInfo.new(
+		0.55,
+		Enum.EasingStyle.Back,
+		Enum.EasingDirection.Out
+	),
+	{
+		Size = FinalSize,
+		Position = FinalPos
+	}
+):Play()
+
+if WindowBackground then
+	TweenService:Create(
+		WindowBackground,
+		TweenInfo.new(
+			0.8,
+			Enum.EasingStyle.Quint,
+			Enum.EasingDirection.Out
+		),
+		{
+			ImageTransparency = 0.1
+		}
+	):Play()
+end
+
+task.spawn(function()
+	for _,v in ipairs(MainFrame:GetDescendants()) do
+		if v:IsA("GuiObject") then
+
+			task.wait(0.01)
+
+			local Goals = {}
+
+			pcall(function()
+				Goals.BackgroundTransparency = 0
+			end)
+
+			if v:IsA("TextLabel") or v:IsA("TextButton") then
+				Goals.TextTransparency = 0
+			end
+
+			if v:IsA("ImageLabel") or v:IsA("ImageButton") then
+				Goals.ImageTransparency = 0
+			end
+
+			TweenService:Create(
+				v,
+				TweenInfo.new(
+					0.35,
+					Enum.EasingStyle.Quint,
+					Enum.EasingDirection.Out
+				),
+				Goals
+			):Play()
+		end
+	end
+end)
 
 
 
