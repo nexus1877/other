@@ -2926,16 +2926,16 @@ end
 	MinimizeButton.Activated:Connect(Window.MinimizeBtn)
 local function AutoApplyRotatingBorders(Speed)
    Speed = Speed or 80
-   
+
    local function AddBorder(Target, Thickness)
        if Target:FindFirstChildOfClass("UIStroke") then return end
-       
+
        local Stroke = Instance.new("UIStroke")
        Stroke.Parent = Target
        Stroke.Thickness = Thickness or 1.6
        Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
        Stroke.Color = Color3.new(1, 1, 1)
-       
+
        local Gradient = Instance.new("UIGradient")
        Gradient.Color = ColorSequence.new{
            ColorSequenceKeypoint.new(0, Theme["Color Theme"]),
@@ -2943,42 +2943,32 @@ local function AutoApplyRotatingBorders(Speed)
            ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
        }
        Gradient.Parent = Stroke
-       
+
        RunService.Heartbeat:Connect(function(dt)
            Gradient.Rotation = (Gradient.Rotation + Speed * dt) % 360
        end)
-       
+
        return Stroke
    end
-   
+
    AddBorder(MainFrame, 2)
-   
+
    local function ScanElement(Element)
        if Element:IsA("Frame") or Element:IsA("TextButton") or Element:IsA("ImageButton") then
            local HasCorner = Element:FindFirstChildOfClass("UICorner")
            local HasStroke = Element:FindFirstChildOfClass("UIStroke")
-           
+
            if HasCorner and not HasStroke then
-               local Thickness = 1.4
-               AddBorder(Element, Thickness)
+               AddBorder(Element, 1.4)
            end
        end
-       
+
        for _, Child in ipairs(Element:GetChildren()) do
            ScanElement(Child)
        end
    end
-   
+
    ScanElement(MainFrame)
-   
-   MainFrame.DescendantAdded:Connect(function(NewElement)
-       task.wait(0.1)
-       if NewElement:IsA("Frame") or NewElement:IsA("TextButton") or NewElement:IsA("ImageButton") then
-           if NewElement:FindFirstChildOfClass("UICorner") and not NewElement:FindFirstChildOfClass("UIStroke") then
-               AddBorder(NewElement, 1.4)
-           end
-       end
-   end)
 end
 
 AutoApplyRotatingBorders(80)
