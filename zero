@@ -70,14 +70,14 @@ Tab1:AddSection({"هنا كل حقوق مطور السكربت"})
 Tab1:AddButton({
   Name = "اضغط هنا ل نسخ حساب المطور  في TikTok",
   Callback = function()
-      setclipboard("shadowdev71")
+      setclipboard("@8n_120")
   end
 })
 
 Tab1:AddButton({
   Name = "اضغط هنا ل نسخ حساب المطور تلي",
   Callback = function()
-      setclipboard("@ShadowDev1253")
+      setclipboard("@NexusDev18")
   end
 })
 Tab2 = Window:MakeTab({"اوامر الاعب"})
@@ -6182,7 +6182,7 @@ ToolsScriptTab:AddSection({"ترا السكربت ينفع بكل الادوات
 ToolsScriptTab:AddButton({
     Name = "Nexus Toilet",
     Callback = function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/NexusDev18/Props/refs/heads/main/toilet"))()
+loadstring(game:HttpGet("https://encrypt-x.pages.dev/Scripts?Id=5805720638855"))("5805720638855")
     end
 })
 
