@@ -1,20 +1,4 @@
 getgenv()._x = (getgenv()._x or 0) + 1
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 local success, config = pcall(function() 
     return loadstring(game:HttpGet("https://pastebin.com/raw/UDUa63du"))() 
 end)
