@@ -1,12 +1,4 @@
 getgenv()._x = (getgenv()._x or 0) + 1
-
-
-
-
-
-
-
-
 local args = {
   "RolePlayName",
   "-Nexus Hub User-"
