@@ -1,0 +1,506 @@
+do
+local Lighting_shader = game:GetService("Lighting")
+local SoundService_shader = game:GetService("SoundService")
+local Players_shader = game:GetService("Players")
+local LocalPlayer_shader = Players_shader.LocalPlayer
+
+local shaderEffects_tab = {}
+local shaderPresets_tab = {}
+local currentPreset_tab = ""
+
+local activeAssets_tab = {}
+local activeSound_tab = nil
+local originalData_tab = {}
+local currentSeason_tab = "شتاء"
+
+local SavedLightingProps_tab = {}
+local SavedLightingObjects_tab = {}
+
+local function createEffect_tab(effectType, props)
+    local existing = Lighting_shader:FindFirstChild("ShadowShader_"..effectType)
+    if existing then existing:Destroy() end
+
+    local effect = Instance.new(effectType)
+    effect.Name = "ShadowShader_"..effectType
+
+    for k,v in pairs(props) do
+        if effect[k] ~= nil then
+            effect[k] = v
+        end
+    end
+
+    effect.Enabled = true
+    effect.Parent = Lighting_shader
+    shaderEffects_tab[effectType] = effect
+    return effect
+end
+
+local function getEffect_tab(name)
+    return shaderEffects_tab[name]
+end
+
+local function removeEffect_tab(name)
+    local e = shaderEffects_tab[name]
+    if e then
+        e:Destroy()
+        shaderEffects_tab[name] = nil
+    end
+end
+
+local function removeAllShaders_tab()
+    for _,v in pairs(shaderEffects_tab) do
+        if v and v.Parent then
+            v:Destroy()
+        end
+    end
+    table.clear(shaderEffects_tab)
+end
+
+local function applyPreset_tab(name)
+    removeAllShaders_tab()
+    local preset = shaderPresets_tab[name]
+    if preset then
+        for effect,props in pairs(preset) do
+            createEffect_tab(effect,props)
+        end
+        currentPreset_tab = name
+    end
+end
+
+local function saveLighting_tab()
+    SavedLightingProps_tab = {
+        Brightness = Lighting_shader.Brightness,
+        ClockTime = Lighting_shader.ClockTime,
+        ExposureCompensation = Lighting_shader.ExposureCompensation,
+        FogColor = Lighting_shader.FogColor,
+        FogStart = Lighting_shader.FogStart,
+        FogEnd = Lighting_shader.FogEnd,
+        Ambient = Lighting_shader.Ambient,
+        OutdoorAmbient = Lighting_shader.OutdoorAmbient,
+        ColorShift_Top = Lighting_shader.ColorShift_Top,
+        ColorShift_Bottom = Lighting_shader.ColorShift_Bottom,
+        EnvironmentDiffuseScale = Lighting_shader.EnvironmentDiffuseScale,
+        EnvironmentSpecularScale = Lighting_shader.EnvironmentSpecularScale,
+        GeographicLatitude = Lighting_shader.GeographicLatitude,
+        GlobalShadows = Lighting_shader.GlobalShadows,
+        ShadowSoftness = Lighting_shader.ShadowSoftness,
+        Technology = Lighting_shader.Technology
+    }
+
+    table.clear(SavedLightingObjects_tab)
+
+    for _,v in pairs(Lighting_shader:GetChildren()) do
+        if v:IsA("PostEffect") or v:IsA("Atmosphere") or v:IsA("Sky") then
+            table.insert(SavedLightingObjects_tab,v:Clone())
+        end
+    end
+end
+
+local function restoreLighting_tab()
+    for k,v in pairs(SavedLightingProps_tab) do
+        Lighting_shader[k] = v
+    end
+
+    for _,v in pairs(Lighting_shader:GetChildren()) do
+        if v:IsA("PostEffect") or v:IsA("Atmosphere") or v:IsA("Sky") then
+            v:Destroy()
+        end
+    end
+
+    for _,v in pairs(SavedLightingObjects_tab) do
+        v:Clone().Parent = Lighting_shader
+    end
+end
+
+local function storeOriginals_tab()
+    for _,part in pairs(workspace:GetDescendants()) do
+        if part:IsA("BasePart") and not part:IsDescendantOf(LocalPlayer_shader.Character) then
+            if not originalData_tab[part] then
+                originalData_tab[part] = {Color = part.Color,Material = part.Material}
+            end
+        end
+    end
+end
+
+local function clearSeason_tab()
+    for _,v in pairs(activeAssets_tab) do
+        if v then v:Destroy() end
+    end
+    table.clear(activeAssets_tab)
+
+    if activeSound_tab then
+        activeSound_tab:Stop()
+        activeSound_tab:Destroy()
+        activeSound_tab=nil
+    end
+
+    for part,data in pairs(originalData_tab) do
+        if part and part.Parent then
+            part.Color=data.Color
+            part.Material=data.Material
+        end
+    end
+
+    Lighting_shader.ClockTime=14
+    Lighting_shader.FogEnd=100000
+
+    local cc=Lighting_shader:FindFirstChild("SeasonColorCorr")
+    if cc then cc:Destroy() end
+end
+
+local function playSound_tab(id)
+    activeSound_tab=Instance.new("Sound",SoundService_shader)
+    activeSound_tab.SoundId=id
+    activeSound_tab.Volume=0.3
+    activeSound_tab.Looped=true
+    activeSound_tab:Play()
+end
+
+local function createSnow_tab()
+    local points={Vector3.new(0,180,0),Vector3.new(600,180,600),Vector3.new(-600,180,-600)}
+    for _,pos in pairs(points) do
+        local p=Instance.new("Part")
+        p.Size=Vector3.new(1500,1,1500)
+        p.Position=pos
+        p.Anchored=true
+        p.Transparency=1
+        p.CanCollide=false
+        p.Parent=workspace
+        table.insert(activeAssets_tab,p)
+
+        local emitter=Instance.new("ParticleEmitter",p)
+        emitter.Texture="rbxassetid://16471396163"
+        emitter.Size=NumberSequence.new(0.3,0.7)
+        emitter.Lifetime=NumberRange.new(12,18)
+        emitter.Rate=120
+        emitter.Acceleration=Vector3.new(0,-2.5,0)
+        emitter.Shape=Enum.ParticleEmitterShape.Box
+    end
+end
+
+local function createLeaves_tab()
+    local p=Instance.new("Part")
+    p.Size=Vector3.new(2000,1,2000)
+    p.Position=Vector3.new(0,150,0)
+    p.Anchored=true
+    p.Transparency=1
+    p.CanCollide=false
+    p.Parent=workspace
+    table.insert(activeAssets_tab,p)
+
+    local emitter=Instance.new("ParticleEmitter",p)
+    emitter.Texture="rbxassetid://81322936295859"
+    emitter.Size=NumberSequence.new(0.6,1.2)
+    emitter.Lifetime=NumberRange.new(10,15)
+    emitter.Rate=50
+    emitter.Acceleration=Vector3.new(5,-5,2)
+end
+
+shaderPresets_tab={
+["طور الحيوي"]={
+BloomEffect={Intensity=2,Size=24,Threshold=0.8},
+ColorCorrectionEffect={Brightness=0.1,Contrast=1.2,Saturation=1},
+SunRaysEffect={Intensity=0.15,Spread=1}
+},
+
+["الكئيب"]={
+BloomEffect={Intensity=1.2,Size=20,Threshold=0.9},
+ColorCorrectionEffect={Brightness=-0.1,Contrast=1.3,Saturation=0.6,TintColor=Color3.fromRGB(255,240,220)},
+DepthOfFieldEffect={FocusDistance=25,InFocusRadius=15,NearIntensity=0.7,FarIntensity=0.7}
+},
+
+["طور الواقعي"]={
+BloomEffect={Intensity=0.8,Size=16,Threshold=0.95},
+ColorCorrectionEffect={Brightness=0.05,Contrast=1.1,Saturation=0.7},
+SunRaysEffect={Intensity=0.08,Spread=0.8}
+},
+
+["طور المظلم"]={
+BloomEffect={Intensity=3,Size=24,Threshold=0.7},
+ColorCorrectionEffect={Brightness=-0.2,Contrast=1.4,Saturation=0.5,TintColor=Color3.fromRGB(180,200,255)},
+BlurEffect={Size=2}
+},
+
+["طور الحلم"]={
+BloomEffect={Intensity=2.5,Size=24,Threshold=0.6},
+ColorCorrectionEffect={Brightness=0.2,Contrast=1.1,Saturation=1.2,TintColor=Color3.fromRGB(255,220,255)},
+BlurEffect={Size=4},
+SunRaysEffect={Intensity=0.2,Spread=1.2}
+}
+}
+
+local Tab9 = Window:MakeTab({
+Title="الشادر",
+Icon="rbxassetid://10723415903"
+})
+
+Tab9:AddSection({"تأثير وقوة الاضواء"})
+
+Tab9:AddToggle({
+Name="تفعيل قوة الاضائة",
+Default=false,
+Callback=function(s)
+if s then
+createEffect_tab("BloomEffect",{Intensity=1.5,Size=24,Threshold=0.9})
+else
+removeEffect_tab("BloomEffect")
+end
+end
+})
+
+Tab9:AddSlider({
+Name="قوة وحجم الاضواء",
+Min=0.1,
+Max=5,
+Default=1.5,
+Callback=function(v)
+local e=getEffect_tab("BloomEffect")
+if e then e.Intensity=v end
+end
+})
+
+Tab9:AddSection({"التشبعات والالوان"})
+
+Tab9:AddToggle({
+Name="تفعيل تشبع الشادرز",
+Default=false,
+Callback=function(s)
+if s then
+createEffect_tab("ColorCorrectionEffect",{Brightness=0.05,Contrast=1.1,Saturation=0.8,TintColor=Color3.fromRGB(255,255,255)})
+else
+removeEffect_tab("ColorCorrectionEffect")
+end
+end
+})
+
+Tab9:AddSlider({
+Name="تشبع الضوء",
+Min=0,
+Max=2,
+Default=0.8,
+Callback=function(v)
+local e=getEffect_tab("ColorCorrectionEffect")
+if e then e.Saturation=v end
+end
+})
+
+Tab9:AddSlider({
+Name="تشبع الالوان",
+Min=0.5,
+Max=2,
+Default=1.1,
+Callback=function(v)
+local e=getEffect_tab("ColorCorrectionEffect")
+if e then e.Contrast=v end
+end
+})
+
+Tab9:AddSlider({
+Name="تحكم بالاضاءة الماب",
+Min=-0.5,
+Max=0.5,
+Default=0.05,
+Callback=function(v)
+local e=getEffect_tab("ColorCorrectionEffect")
+if e then e.Brightness=v end
+end
+})
+
+Tab9:AddSection({"التغويش"})
+
+Tab9:AddToggle({
+Name="تفعيل دقة وتغويش",
+Default=false,
+Callback=function(s)
+if s then
+createEffect_tab("BlurEffect",{Size=3})
+else
+removeEffect_tab("BlurEffect")
+end
+end
+})
+
+Tab9:AddSlider({
+Name="دقة الشادر",
+Min=1,
+Max=10,
+Default=3,
+Callback=function(v)
+local e=getEffect_tab("BlurEffect")
+if e then e.Size=v end
+end
+})
+
+Tab9:AddSection({"مودات الشادرز"})
+
+for name,_ in pairs(shaderPresets_tab) do
+Tab9:AddButton({
+Name="Preset: "..name,
+Callback=function()
+applyPreset_tab(name)
+end
+})
+end
+
+Tab9:AddSection({"الشادرات"})
+
+Tab9:AddToggle({
+Name = "RTX/شادر",
+Default = false,
+Callback = function(state)
+if state then
+saveLighting_tab()
+pcall(function()
+    loadstring(game:HttpGet(
+    "https://raw.githubusercontent.com/kllooep/Fjjzxda6/main/Tahakom75"
+    ))()
+end)
+else
+restoreLighting_tab()
+end
+end
+})
+
+Tab9:AddToggle({
+Name = "جودة إضاءة سينمائية",
+Default = false,
+Callback = function(state)
+if state then
+for _,v in pairs(Lighting_shader:GetChildren()) do
+if v:IsA("BloomEffect") or v:IsA("BlurEffect") or v:IsA("ColorCorrectionEffect") 
+or v:IsA("SunRaysEffect") or v:IsA("Sky") or v:IsA("Atmosphere") then
+v:Destroy()
+end
+end
+
+local Bloom = Instance.new("BloomEffect",Lighting_shader)
+local Blur = Instance.new("BlurEffect",Lighting_shader)
+local ColorCor = Instance.new("ColorCorrectionEffect",Lighting_shader)
+local SunRays = Instance.new("SunRaysEffect",Lighting_shader)
+local Sky = Instance.new("Sky",Lighting_shader)
+local Atm = Instance.new("Atmosphere",Lighting_shader)
+
+Bloom.Intensity = 0.3
+Bloom.Size = 10
+Bloom.Threshold = 0.8
+
+Blur.Size = 5
+
+ColorCor.Brightness = 0.1
+ColorCor.Contrast = 0.5
+ColorCor.Saturation = -0.3
+ColorCor.TintColor = Color3.fromRGB(255,235,203)
+
+SunRays.Intensity = 0.075
+SunRays.Spread = 0.727
+
+Sky.SkyboxBk = "http://www.roblox.com/asset/?id=151165214"
+Sky.SkyboxDn = "http://www.roblox.com/asset/?id=151165197"
+Sky.SkyboxFt = "http://www.roblox.com/asset/?id=151165224"
+Sky.SkyboxLf = "http://www.roblox.com/asset/?id=151165191"
+Sky.SkyboxRt = "http://www.roblox.com/asset/?id=151165206"
+Sky.SkyboxUp = "http://www.roblox.com/asset/?id=151165227"
+Sky.SunAngularSize = 10
+
+Lighting_shader.Ambient = Color3.fromRGB(2,2,2)
+Lighting_shader.Brightness = 2.25
+Lighting_shader.ColorShift_Bottom = Color3.fromRGB(0,0,0)
+Lighting_shader.ColorShift_Top = Color3.fromRGB(0,0,0)
+Lighting_shader.EnvironmentDiffuseScale = 0.2
+Lighting_shader.EnvironmentSpecularScale = 0.2
+Lighting_shader.GlobalShadows = true
+Lighting_shader.OutdoorAmbient = Color3.fromRGB(0,0,0)
+Lighting_shader.ShadowSoftness = 0.2
+Lighting_shader.ClockTime = 17
+Lighting_shader.GeographicLatitude = 45
+Lighting_shader.ExposureCompensation = 0.5
+
+Atm.Density = 0.364
+Atm.Offset = 0.556
+Atm.Color = Color3.fromRGB(199,175,166)
+Atm.Decay = Color3.fromRGB(44,39,33)
+Atm.Glare = 0.36
+Atm.Haze = 1.72
+
+else
+restoreLighting_tab()
+
+end
+end
+})
+
+Tab9:AddButton({
+Name = "شادر بسيط (للاجهزة الضعيفة)",
+Callback = function()
+removeAllShaders_tab()
+createEffect_tab("ColorCorrectionEffect",{
+Brightness = 0.05,
+Contrast = 1.1,
+Saturation = 0.8
+})
+end
+})
+
+Tab9:AddButton({
+Name = "حذف كل الشادر",
+Callback = function()
+removeAllShaders_tab()
+end
+})
+
+Tab9:AddSection({"الأجواء"})
+
+Tab9:AddDropdown({
+Name = "اختر الفصل",
+Default = "شتاء",
+Options = {"شتاء","خريف"},
+Callback = function(v)
+currentSeason_tab = v
+end
+})
+
+Tab9:AddButton({
+Name = "تفعيل الأجواء",
+Callback = function()
+storeOriginals_tab()
+clearSeason_tab()
+
+if currentSeason_tab == "شتاء" then
+playSound_tab("rbxassetid://9114057104")
+for part,_ in pairs(originalData_tab) do
+part.Material = Enum.Material.Snow
+part.Color = Color3.fromRGB(255,255,255)
+end
+createSnow_tab()
+Lighting_shader.FogColor = Color3.fromRGB(215,220,235)
+Lighting_shader.FogEnd = 1200
+
+elseif currentSeason_tab == "خريف" then
+playSound_tab("rbxassetid://152434053")
+for part,data in pairs(originalData_tab) do
+local r,g,b = data.Color.R*255,data.Color.G*255,data.Color.B*255
+if g>r and g>b then
+part.Color = Color3.fromRGB(180,80,20)
+part.Material = Enum.Material.Grass
+end
+end
+createLeaves_tab()
+Lighting_shader.ClockTime = 17.2
+Lighting_shader.FogColor = Color3.fromRGB(180,120,50)
+Lighting_shader.FogEnd = 1500
+
+local cc = Instance.new("ColorCorrectionEffect",Lighting_shader)
+cc.Name = "SeasonColorCorr"
+cc.Saturation = 0.2
+table.insert(activeAssets_tab,cc)
+end
+end
+})
+
+Tab9:AddButton({
+Name = "إيقاف الأجواء",
+Callback = function()
+clearSeason_tab()
+end
+})
+end
