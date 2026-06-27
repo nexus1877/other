@@ -1,0 +1,213 @@
+import os
+import re
+import json
+import base64
+import random
+import string
+import requests
+import time
+from pathlib import Path
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+
+TOKEN = ""
+BLACKLIST = [
+    "https://encrypt-x.pages.dev/Scripts?Id=7985439231828"
+]
+MAX_RETRIES = 3
+
+class EncryptXDecryptor:
+    def __init__(self, work_dir="decrypt_workspace"):
+        self.work_dir = Path(work_dir)
+        self.work_dir.mkdir(exist_ok=True)
+        self.blacklist = BLACKLIST
+
+    def is_blacklisted(self, url):
+        return url in self.blacklist
+
+    def generate_random_filename(self, length=10):
+        chars = string.ascii_lowercase + string.digits
+        return ''.join(random.choice(chars) for _ in range(length)) + ".lua"
+
+    def extract_proxy_url(self, html):
+        patterns = [
+            r'https://proxy\.2677929\.xyz/[^"\']+',
+            r'fetch\s*\(\s*["\'](https://proxy\.2677929\.xyz/[^"\']+)["\']',
+            r'https://raw\.githubusercontent\.com/[^"\']+',
+            r'https://github\.com/[^"\']+',
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, html)
+            if match:
+                url = match.group(1) if 'fetch' in pattern else match.group(0)
+                return url
+        return None
+
+    def build_github_url(self, script_id):
+        candidates = [
+            f"https://raw.githubusercontent.com/ScriptObfuscator2/Scripts/main/{script_id}",
+            f"https://raw.githubusercontent.com/ScriptObfuscator2/Scripts/master/{script_id}",
+            f"https://raw.githubusercontent.com/ScriptObfuscator2/Scripts/{script_id}",
+        ]
+        for url in candidates:
+            try:
+                resp = requests.head(url, timeout=5)
+                if resp.status_code == 200:
+                    return url
+            except:
+                continue
+        return None
+
+    def decrypt_script(self, encrypted, key):
+        try:
+            encrypted += '=' * (8 - len(encrypted) % 8)
+            decoded_bytes = base64.b32decode(encrypted)
+            result = ''.join(
+                chr(decoded_bytes[i] ^ ord(key[i % len(key)]))
+                for i in range(len(decoded_bytes))
+            )
+            return result
+        except Exception:
+            return None
+
+    def process_url(self, url):
+        start_time = time.time()
+
+        if self.is_blacklisted(url):
+            return {"error": "This URL is in the blacklist."}
+
+        try:
+            script_id = re.search(r'Id=(\d+)', url)
+            if not script_id:
+                return {"error": "No ID found in URL"}
+            script_id = script_id.group(1)
+
+            filename_base = f"id_{script_id}"
+            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+
+            retries = 0
+            while retries < MAX_RETRIES:
+                try:
+                    response = requests.get(url, timeout=30, headers=headers)
+                    if response.status_code == 200:
+                        break
+                    retries += 1
+                    time.sleep(2)
+                except:
+                    retries += 1
+                    time.sleep(2)
+
+            if response.status_code != 200:
+                return {"error": f"HTTP {response.status_code} after {MAX_RETRIES} retries"}
+
+            html_file = self.work_dir / f"{filename_base}_page.html"
+            html_file.write_text(response.text)
+
+            proxy_url = self.extract_proxy_url(response.text)
+            if not proxy_url:
+                proxy_url = self.build_github_url(script_id)
+                if not proxy_url:
+                    return {"error": "Proxy URL not found and GitHub build failed"}
+
+            if '${id}' in proxy_url:
+                proxy_url = proxy_url.replace('${id}', script_id)
+            if 'github.com' in proxy_url and '/blob/' in proxy_url:
+                proxy_url = proxy_url.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/')
+
+            retries = 0
+            while retries < MAX_RETRIES:
+                try:
+                    json_response = requests.get(proxy_url, timeout=30)
+                    if json_response.status_code == 200:
+                        break
+                    retries += 1
+                    time.sleep(2)
+                except:
+                    retries += 1
+                    time.sleep(2)
+
+            if json_response.status_code != 200:
+                return {"error": f"JSON HTTP {json_response.status_code} after {MAX_RETRIES} retries"}
+
+            json_file = self.work_dir / f"{filename_base}_data.json"
+            json_file.write_text(json_response.text)
+
+            data = json_response.json()
+            if 'Key' not in data or 'Script' not in data:
+                return {"error": f"Missing Key/Script. Keys: {list(data.keys())}"}
+
+            decrypted = self.decrypt_script(data['Script'], data['Key'])
+            if decrypted is None:
+                return {"error": "Decryption failed"}
+
+            output_name = self.generate_random_filename()
+            output_file = self.work_dir / output_name
+            output_file.write_text(decrypted)
+
+            elapsed_time = round(time.time() - start_time, 2)
+
+            return {
+                "success": True,
+                "file": str(output_file),
+                "filename": output_name,
+                "size": len(decrypted),
+                "id": script_id,
+                "time": elapsed_time
+            }
+
+        except Exception as e:
+            return {"error": str(e)}
+
+decryptor = EncryptXDecryptor()
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "Encrypt-X Decryptor Bot\n\n"
+        "Send me a URL like:\n"
+        "https://encrypt-x.pages.dev/Scripts?Id=123456789\n\n"
+        "I will fetch, decrypt, and return the script as a .lua file."
+    )
+
+async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    url = update.message.text.strip()
+
+    if "encrypt-x.pages.dev" not in url:
+        await update.message.reply_text("Invalid URL. Only Encrypt-X links are supported.")
+        return
+
+    msg = await update.message.reply_text("Processing...")
+
+    try:
+        result = decryptor.process_url(url)
+
+        if "error" in result:
+            await msg.edit_text(f"Error: {result['error']}")
+            return
+
+        await msg.edit_text(
+            f"Success!\n"
+            f"File: {result['filename']}\n"
+            f"Size: {result['size']} characters\n"
+            f"ID: {result['id']}\n"
+            f"Time: {result['time']} seconds"
+        )
+
+        with open(result['file'], 'rb') as f:
+            await update.message.reply_document(
+                document=f,
+                filename=result['filename'],
+                caption=f"Decrypted script for ID: {result['id']}"
+            )
+
+    except Exception as e:
+        await msg.edit_text(f"Error: {str(e)}")
+
+def main():
+    app = Application.builder().token(TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
+    print("Bot is running...")
+    app.run_polling()
+
+if __name__ == "__main__":
+    main()
